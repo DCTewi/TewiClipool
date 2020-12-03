@@ -1,0 +1,149 @@
+﻿@inject UserService UserService
+
+<tr>
+    <th scope="row">
+        <span class="cursor-pointer text-monospace mytooltip">
+            <span>GUID</span>
+            <span class="mytooltiptext mb-2">@UserInfo.Id</span>
+        </span>
+    </th>
+    <td class="@idClass">
+        <span class="text-monospace">
+            @UserInfo.UserName
+        </span>
+    </td>
+    <td>@UserInfo.NickName</td>
+    <td>@emailstring</td>
+    <td>
+        <span class="cursor-pointer badge shadow-sm @(UserInfo.IsEditor ? "badge-dark" : "badge-secondary")"
+              @onclick="@(async () => await ToggleRole(StaffType.Editor))">
+            @LocalStrings.GetStaffType(StaffType.Editor)
+        </span>
+        <span class="cursor-pointer badge shadow-sm @(UserInfo.IsTimeline ? "badge-info" : "badge-secondary")"
+              @onclick="@(async () => await ToggleRole(StaffType.Timeline))">
+            @LocalStrings.GetStaffType(StaffType.Timeline)
+        </span>
+        <span class="cursor-pointer badge shadow-sm @(UserInfo.IsTranslator ? "badge-success" : "badge-secondary")"
+              @onclick="@(async () => await ToggleRole(StaffType.Translator))">
+            @LocalStrings.GetStaffType(StaffType.Translator)
+        </span>
+        <span class="cursor-pointer badge shadow-sm @(UserInfo.IsReviewer ? "badge-danger" : "badge-secondary")"
+              @onclick="@(async () => await ToggleRole(StaffType.Reviewer))">
+            @LocalStrings.GetStaffType(StaffType.Reviewer)
+        </span>
+        <span class="cursor-pointer badge shadow-sm @(UserInfo.IsPostProducer ? "badge-warning" : "badge-secondary")"
+              @onclick="@(async () => await ToggleRole(StaffType.PostProducer))">
+            @LocalStrings.GetStaffType(StaffType.PostProducer)
+        </span>
+        <span class="cursor-pointer badge shadow-sm @(UserInfo.IsArt ? "badge-primary" : "badge-secondary")"
+              @onclick="@(async () => await ToggleRole(StaffType.Art))">
+            @LocalStrings.GetStaffType(StaffType.Art)
+        </span>
+    </td>
+    <td>
+        <AuthorizeView Roles="@Literal.Roles.Admin">
+            @if (UserInfo.UserName == context.User.Identity.Name)
+            {
+                <span class="badge shadow-sm badge-dark ml-1"><span class="oi oi-cog"></span></span>
+            }
+            else if (UserInfo.IsUser)
+            {
+                <button class="btn btn-sm btn-outline-info ml-1" @onclick="ToggleOp">
+                    <span class="oi oi-key"></span>
+                </button>
+                <button class="btn btn-sm btn-outline-dark ml-1" @onclick="@(() => resetPwModal.Toggle())">
+                    <span class="oi oi-loop-circular"></span>
+                </button>
+                <Modal @ref="resetPwModal">
+                    <ModalTitle>Are you sure?</ModalTitle>
+                    <ModalBody>
+                        Reset @UserInfo.UserName's Password to <code>Aa1234</code> ?
+                        <hr />
+                        <button class="btn btn-outline-danger" @onclick="ResetPasswordToAa1234">Yes</button>
+                    </ModalBody>
+                </Modal>
+            }
+        </AuthorizeView>
+        @if (UserInfo.IsOperator)
+        {
+            <span class="badge badge-info shadow-sm ml-1"><span class="oi oi-key"></span></span>
+        }
+        else
+        {
+            <button class="btn btn-sm btn-outline-danger ml-1" @onclick="ToggleBan">
+                <span class="oi oi-ban"></span>
+            </button>
+            @if (!UserInfo.IsUser)
+            {
+                <span class="badge badge-danger shadow-sm ml-1"><span class="oi oi-ban"></span></span>
+            }
+        }
+    </td>
+</tr>
+
+@code
+{
+    [Parameter] public UserInfo UserInfo { get; set; }
+    [Parameter] public Func<Task> OnChange { get; set; }
+    private string idClass => UserInfo.IsOperator ? "text-info" : !UserInfo.IsUser ? "text-secondary" : "";
+    private bool isSubmitted = false;
+    private string emailstring;
+    private Modal resetPwModal;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (UserInfo != null && string.IsNullOrEmpty(emailstring))
+        {
+            emailstring = "loading";
+            emailstring = await UserService.GetEmail(UserInfo.UserName);
+        }
+        await base.OnParametersSetAsync();
+    }
+
+    private async Task ToggleRole(StaffType type)
+    {
+        if (isSubmitted) return;
+
+        isSubmitted = true;
+        _ = await UserService.ConfigRole(UserInfo.UserName, type, !UserInfo.CheckRole(type));
+        await OnChange();
+
+        isSubmitted = false;
+    }
+
+    private async Task ToggleBan()
+    {
+        if (isSubmitted) return;
+
+        isSubmitted = true;
+        await UserService.ToggleBanByUsername(UserInfo.UserName);
+        await OnChange();
+
+        isSubmitted = false;
+    }
+
+    [Authorize(Roles = Literal.Roles.Admin)]
+    private async Task ToggleOp()
+    {
+        if (isSubmitted) return;
+
+        isSubmitted = true;
+        await UserService.ConfigOp(UserInfo.UserName, !UserInfo.IsOperator);
+        await OnChange();
+
+        isSubmitted = false;
+    }
+
+    [Authorize(Roles = Literal.Roles.Admin)]
+    private async Task ResetPasswordToAa1234()
+    {
+        if (isSubmitted) return;
+
+        isSubmitted = true;
+        resetPwModal.Toggle();
+        await UserService.ResetPassword(UserInfo.UserName);
+        await OnChange();
+
+        isSubmitted = false;
+    }
+}

@@ -1,0 +1,88 @@
+﻿@inject AnnounceService AnnounceService
+
+<CommandBar>
+    <AuthorizeView Roles="@Literal.Roles.Operator" Context="Auth">
+        <Modal @ref="announceModal">
+            <ModalTitle>@LocalStrings.Create</ModalTitle>
+            <ModalBody>
+                <EditForm Model="newAnnounce" OnValidSubmit="TryAdd">
+                    <DataAnnotationsValidator></DataAnnotationsValidator>
+                    <p class="form-group">
+                        <label>@LocalStrings.Title</label>
+                        <InputText @bind-Value="newAnnounce.Title" class="form-control"></InputText>
+                        <ValidationMessage For="@(() => newAnnounce.Title)"></ValidationMessage>
+                    </p>
+                    <p class="form-group">
+                        <label>@LocalStrings.ContentHTML</label>
+                        <InputTextArea @bind-Value="newAnnounce.RawHtml" class="form-control text-monospace" rows="12"></InputTextArea>
+                        <ValidationMessage For="@(() => newAnnounce.RawHtml)"></ValidationMessage>
+                    </p>
+                    <p class="custom-control custom-switch">
+                        <InputCheckbox @bind-Value="newAnnounce.IsTopped" class="custom-control-input" id="newSelectTop"></InputCheckbox>
+                        <label for="newSelectTop" class="custom-control-label">@LocalStrings.Topped</label>
+                    </p>
+                    <hr />
+                    <button type="submit" class="btn btn-outline-primary">@LocalStrings.Submit</button>
+                </EditForm>
+            </ModalBody>
+        </Modal>
+        <button class="btn btn-outline-primary" @onclick="() => announceModal.Toggle()">
+            @LocalStrings.Create
+        </button>
+    </AuthorizeView>
+</CommandBar>
+
+@if (Announces == null)
+{
+    <Loading LoadingMessage="@LocalStrings.LoadMessage.Fetching"></Loading>
+}
+else if (Announces.Count == 0)
+{
+    <NothingHere></NothingHere>
+}
+else
+{
+    foreach (var announce in Announces.Where(a => a.IsTopped))
+    {
+        <AnnounceContainer Announce="announce" OnChange="Fresh"></AnnounceContainer>
+        <br />
+    }
+    foreach (var announce in Announces.Where(a => !a.IsTopped))
+    {
+        <AnnounceContainer Announce="announce" OnChange="Fresh"></AnnounceContainer>
+        <br />
+    }
+}
+
+@code
+{
+    private Modal announceModal;
+    private AnnounceInfo newAnnounce = new AnnounceInfo();
+    private List<AnnounceInfo> Announces { get; set; }
+    private bool isSubmitted = false;
+
+    protected async override Task OnInitializedAsync()
+    {
+        await Fresh();
+        await base.OnInitializedAsync();
+    }
+
+    private async void TryAdd()
+    {
+        if (isSubmitted) return;
+
+        isSubmitted = true;
+        announceModal.Toggle();
+        _ = await AnnounceService.Create(newAnnounce);
+
+        await Fresh();
+        isSubmitted = false;
+    }
+
+    private async Task Fresh()
+    {
+        newAnnounce = new AnnounceInfo();
+        Announces = await AnnounceService.GetAll();
+        StateHasChanged();
+    }
+}

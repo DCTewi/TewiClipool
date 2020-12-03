@@ -1,0 +1,145 @@
+﻿@inject RegisterTokenService RegisterTokenService
+
+<CommandBar>
+    <Modal @ref="registertokenModal">
+        <ModalTitle>@LocalStrings.Create</ModalTitle>
+        <ModalBody>
+            <EditForm Model="newRegisterToken" OnValidSubmit="TryAddToken">
+                <DataAnnotationsValidator></DataAnnotationsValidator>
+                <p class="form-group">
+                    <label>@LocalStrings.Navagation.RegisterToken</label>
+                    <InputText class="form-control" placeholder="Token" @bind-Value="newRegisterToken.Token"></InputText>
+                    <ValidationMessage For="@(() => newRegisterToken.Token)"></ValidationMessage>
+                </p>
+                <button type="submit" class="btn btn-outline-primary">@LocalStrings.Submit</button>
+            </EditForm>
+        </ModalBody>
+    </Modal>
+    <button class="btn btn-outline-primary mx-1" @onclick="@(() => registertokenModal.Toggle())">@LocalStrings.Create</button>
+    <Modal @ref="multitokenModal">
+        <ModalTitle>@LocalStrings.CreateMulti</ModalTitle>
+        <ModalBody>
+            <EditForm Model="newRegisterTokens" OnValidSubmit="TryAddMultiToken">
+                <DataAnnotationsValidator></DataAnnotationsValidator>
+                <p class="form-group">
+                    <label>@LocalStrings.Navagation.RegisterToken</label>
+                    <InputTextArea class="form-control" placeholder="Tokens" rows="12" @bind-Value="newRegisterTokens"></InputTextArea>
+                </p>
+                <button type="submit" class="btn btn-outline-primary">@LocalStrings.Submit</button>
+            </EditForm>
+        </ModalBody>
+    </Modal>
+    <button class="btn btn-outline-primary mx-1" @onclick="@(() => multitokenModal.Toggle())">@LocalStrings.CreateMulti</button>
+    <Modal @ref="multirandomModal">
+        <ModalTitle>@LocalStrings.CreateMultiRandom</ModalTitle>
+        <ModalBody>
+            <EditForm Model="newRegisterTokens" OnValidSubmit="TryAddMultiRandomToken">
+                <DataAnnotationsValidator></DataAnnotationsValidator>
+                <p class="form-group">
+                    <label>@LocalStrings.Count</label>
+                    <InputNumber class="form-control" @bind-Value="count"></InputNumber>
+                </p>
+                <button type="submit" class="btn btn-outline-primary">@LocalStrings.Submit</button>
+            </EditForm>
+        </ModalBody>
+    </Modal>
+    <button class="btn btn-outline-primary mx-1" @onclick="@(() => multirandomModal.Toggle())">@LocalStrings.CreateMultiRandom</button>
+</CommandBar>
+
+@if (RegisterTokens == null)
+{
+    <Loading LoadingMessage="@LocalStrings.LoadMessage.Fetching"></Loading>
+}
+else if (RegisterTokens.Count == 0)
+{
+    <NothingHere></NothingHere>
+}
+else
+{
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th scope="col">@LocalStrings.TableHeader.Id</th>
+                <th scope="col">@LocalStrings.TableHeader.Token</th>
+                <th scope="col">@LocalStrings.TableHeader.Available</th>
+                <th scope="col">@LocalStrings.TableHeader.UserName</th>
+                <th scope="col">@LocalStrings.TableHeader.Operation</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var token in RegisterTokens.OrderByDescending(t => t.Id))
+            {
+                <RegisterTokenContainer RegisterToken="token"
+                                        OnChange="Fresh">
+                </RegisterTokenContainer>
+            }
+        </tbody>
+    </table>
+}
+
+@code
+{
+    private List<RegisterTokenInfo> RegisterTokens { get; set; }
+    private Modal registertokenModal;
+    private Modal multitokenModal;
+    private Modal multirandomModal;
+    private RegisterTokenInfo newRegisterToken = new RegisterTokenInfo();
+    private string newRegisterTokens = "";
+    private int count = 0;
+    private bool isSubmitted = false;
+
+    protected async override Task OnInitializedAsync()
+    {
+        await Fresh();
+        await base.OnInitializedAsync();
+    }
+
+    protected async Task TryAddToken()
+    {
+        if (isSubmitted) return;
+
+        isSubmitted = true;
+        registertokenModal.Toggle();
+        _ = await RegisterTokenService.Create(newRegisterToken);
+        newRegisterToken = new RegisterTokenInfo();
+        await Fresh();
+        isSubmitted = false;
+    }
+
+    protected async Task TryAddMultiToken()
+    {
+        if (isSubmitted) return;
+
+        isSubmitted = true;
+        multitokenModal.Toggle();
+        foreach (var token in newRegisterTokens.Split('\n'))
+        {
+            await RegisterTokenService.Create(new RegisterTokenInfo
+            {
+                Token = token
+            });
+        }
+        await Fresh();
+        isSubmitted = false;
+    }
+
+    protected async Task TryAddMultiRandomToken()
+    {
+        if (isSubmitted) return;
+
+        isSubmitted = true;
+        multirandomModal.Toggle();
+        await RegisterTokenService.CreateRandom(count);
+        count = 0;
+        await Fresh();
+        isSubmitted = false;
+    }
+
+    private async Task Fresh()
+    {
+        RegisterTokens = await RegisterTokenService.GetAll();
+        RegisterTokens = RegisterTokens.OrderBy(c => c.Id).ToList();
+
+        StateHasChanged();
+    }
+}

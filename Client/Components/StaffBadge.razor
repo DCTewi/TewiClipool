@@ -1,0 +1,43 @@
+﻿@inject UserService UserService 
+
+<span class="badge ml-2 @badgeClass">
+    @if (ShowUserName)
+    {
+        @StaffItem.StaffNickName
+    }
+    else
+    {
+        @LocalStrings.GetStaffType(StaffItem.Type)
+    }
+</span>
+
+@code
+{
+    [Parameter] public StaffItem StaffItem { get; set; }
+    [Parameter] public bool ShowUserName { get; set; } = true;
+    private string badgeClass
+    {
+        get
+        {
+            if (StaffItem.Process == ProcessType.Accepted ||
+                StaffItem.Process == ProcessType.GaveUp ||
+                StaffItem.Saged)
+            {
+                return "badge-secondary";
+            }
+            else
+            {
+                return StaffItem.Type switch
+                {
+                    StaffType.Editor => "badge-dark",
+                    StaffType.Translator => "badge-success",
+                    StaffType.Timeline => "badge-info",
+                    StaffType.Reviewer => "badge-danger",
+                    StaffType.PostProducer => "badge-warning",
+                    StaffType.Art => "badge-primary",
+                    _ => "badge-secondary",
+                };
+            }
+        }
+    }
+}

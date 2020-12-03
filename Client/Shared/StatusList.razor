@@ -1,0 +1,123 @@
+﻿@inject StaffService StaffService
+@inject UserService UserService
+@inject ClipService ClipService 
+
+<CommandBar>
+</CommandBar>
+
+@if (userInfos == null)
+{
+    <Loading LoadingMessage="@LocalStrings.LoadMessage.Fetching"></Loading>
+}
+else if (userInfos.Count == 0)
+{
+    <NothingHere></NothingHere>
+}
+else
+{
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th scope="col">@LocalStrings.TableHeader.NickName</th>
+                <th scope="col">@LocalStrings.TableHeader.LastComplete</th>
+                <th class="cursor-pointer" scope="col" @onclick="@(() => SetOrderType(StatusOrderType.ByLastMonth))">
+                    @LocalStrings.TableHeader.LastMonthComplete
+                    @if (orderType == StatusOrderType.ByLastMonth)
+                    {
+                        <small class="oi oi-arrow-bottom ml-1 text-primary"></small>
+                    }
+                </th>
+                <th class="cursor-pointer" scope="col" @onclick="@(() => SetOrderType(StatusOrderType.ByTotal))">
+                    @LocalStrings.TableHeader.TotalComplete
+                    @if (orderType == StatusOrderType.ByTotal)
+                    {
+                        <small class="oi oi-arrow-bottom ml-1 text-primary"></small>
+                    }
+                </th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var info in statusInfos)
+            {
+                <tr>
+                    <td>@info.NickName</td>
+                    <td>
+                        @info.LastCompleteTime.ToShortDateString()
+                        @if (@info.LastCompleteType != null)
+                        {
+                            <StaffBadge StaffItem="@(new StaffItem { Type = (StaffType)info.LastCompleteType, Process = ProcessType.Completed })" ShowUserName="false"></StaffBadge>
+                        }
+                    </td>
+                    <td>
+                        <details>
+                            <summary>@info.LastMonth.Count</summary>
+                            @foreach (var item in info.LastMonth)
+                            {
+                                
+                                <small>@allClips.FirstOrDefault(c => c.Id == item.ClipId).Title <StaffBadge StaffItem="item" ShowUserName="false"></StaffBadge></small><br />
+                            }
+                        </details>
+                    </td>
+                    <td>
+                        @info.CompletedItems.Count
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code
+{
+    private enum StatusOrderType
+    {
+        ByLastMonth = 1,
+        ByTotal = 2
+    }
+    private StatusOrderType orderType = StatusOrderType.ByLastMonth;
+    private List<UserInfo> userInfos;
+    private List<StaffItem> completedStaffs;
+    private List<Clip> allClips;
+    private List<UserStatusInfo> statusInfos = new List<UserStatusInfo>();
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        userInfos = await UserService.GetAll();
+        completedStaffs = await StaffService.GetAll();
+        allClips = await ClipService.GetAll();
+        completedStaffs = completedStaffs
+            .Where(s => s.Process == ProcessType.Completed)
+            .Where(s => !s.Saged)
+            .ToList();
+        foreach (var user in userInfos)
+        {
+            statusInfos.Add(new UserStatusInfo(user.UserName, user.NickName, completedStaffs));
+        }
+        SetOrderType(StatusOrderType.ByLastMonth);
+        await base.OnInitializedAsync();
+    }
+
+    private void SetOrderType(StatusOrderType type)
+    {
+        orderType = type;
+        FreshOrder();
+    }
+
+    private void FreshOrder()
+    {
+        switch (orderType)
+        {
+            case StatusOrderType.ByLastMonth:
+                statusInfos = statusInfos.OrderByDescending(i => i.LastMonth.Count).ToList();
+                break;
+            case StatusOrderType.ByTotal:
+                statusInfos = statusInfos.OrderByDescending(i => i.CompletedItems.Count).ToList();
+                break;
+            default:
+                break;
+        }
+
+        StateHasChanged();
+    }
+}

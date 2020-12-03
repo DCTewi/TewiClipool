@@ -1,0 +1,84 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>字幕组工作表</title>
+    <base href="/" />
+    <link href="css/bootstrap/bootstrap.min.css" rel="stylesheet" />
+    <link href="css/app.min.css" rel="stylesheet" />
+    <link href="TewiClipool.Client.styles.css" rel="stylesheet" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="manifest" href="manifest.json" />
+    <style type="text/css">
+        .loadcanvas { align-items: center; border-radius: 50%; box-shadow: 0 5px 10px rgba(0,0,0,0.2); display: flex; height: 10em; justify-content: center; margin: 1em 1em 2em 1em; width: 10em; }
+        .loading { animation: spin 1s linear infinite; border: solid 7px transparent; border-top: solid 7px #66CCFF; border-radius: 100%; width: 3em; height: 3em; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="container">
+            <div class="d-flex justify-content-center mt-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="sr-only">Loading</span>
+                </div>
+            </div>
+            <div class="d-flex justify-content-center m-2 mt-4">
+                <div id="progressbar" style="display: inline-block; width: 260px; height: 14px; border: solid 2px gray; border-radius:3px; position: relative;"></div>
+            </div>
+        </div>
+    </div>
+    <div id="blazor-error-ui">
+        エラー発生，
+        <a href="" class="reload">刷新</a>
+        <a class="dismiss">🗙</a>
+    </div>
+    <script type="text/javascript">
+        var preLoadStart = 0;
+        var preLoadCount = 0;
+        var preLoadError = 0;
+        var preLoadFinish = 0;
+        function preLoadResource(dllname) {
+            preLoadCount++;
+            var xh = new XMLHttpRequest();
+            xh.open("GET", dllname, true);
+            xh.onload = function () {
+                preLoadFinish++;
+                if (xh.status != 200) preLoadError++;
+                console.log("Download:", preLoadFinish + "/" + preLoadCount, dllname);
+                var progressbar = document.getElementById("progressbar");
+                if (progressbar) {
+                    progressbar.innerHTML = "<span style='position:absolute;left:0;background-color:#66CCFF;height:10px;border-radius:1px;width:" + (progressbar.offsetWidth * preLoadFinish / preLoadCount) + "px'></span>";
+                }
+                if (preLoadFinish == preLoadCount) {
+                    var span = new Date().getTime() - preLoadStart;
+                    console.log("Download All Done In " + span + " ms with " + preLoadError + " errors");
+                }
+            }
+            xh.send("");
+        }
+        function preLoadAll() {
+            preLoadStart = new Date().getTime();
+            var xh = new XMLHttpRequest();
+            xh.open("GET", "_framework/blazor.boot.json", true);
+            xh.onload = function () {
+                var res = JSON.parse(xh.responseText);
+                console.log("Resource List:", res.resources);
+                for (var p in res.resources.assembly)
+                    preLoadResource("_framework/" + p);
+                for (var p in res.resources.pdb)
+                    preLoadResource("_framework/" + p);
+                for (var p in res.resources.runtime)
+                    preLoadResource("_framework/" + p);
+                preLoadResource("_framework/blazor.webassembly.js");
+            }
+            xh.send("");
+        }
+        preLoadAll();
+    </script>
+    <script src="_content/Microsoft.AspNetCore.Components.WebAssembly.Authentication/AuthenticationService.js"></script>
+    <script src="_framework/blazor.webassembly.js"></script>
+    <script>navigator.serviceWorker.register('service-worker.js');</script>
+</body>
+</html>

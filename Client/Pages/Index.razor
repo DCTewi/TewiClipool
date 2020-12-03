@@ -1,0 +1,18 @@
+﻿@page "/"
+
+<AuthorizeView Roles="@Literal.Roles.User">
+    <NotAuthorized>
+        <CommandBar></CommandBar>
+        <ErrorComponent ErrorTitle="@LocalStrings.Error.AccessDenied401"
+                        ErrorContent="@LocalStrings.Error.AccessDenied401Details">
+        </ErrorComponent>
+    </NotAuthorized>
+    <Authorizing>
+        <Loading LoadingMessage="@LocalStrings.LoadMessage.Authorizing"></Loading>
+    </Authorizing>
+    <Authorized>
+
+        <AnnounceList></AnnounceList>
+
+    </Authorized>
+</AuthorizeView>

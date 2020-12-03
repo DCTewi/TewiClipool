@@ -1,0 +1,286 @@
+﻿@inject ClipService ClipService
+@inject UserService UserService
+@inject StaffService StaffService 
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<CommandBar>
+    <AuthorizeView Roles="@Literal.Roles.User" Context="Auth">
+        <ul class="pagination mb-0 ml-2">
+            <li class="page-item">
+                <button class="page-link" @onclick="PrevPage">&laquo;</button>
+            </li>
+            <li class="page-item">
+                <EditForm Model="FilterInfo" OnValidSubmit="ApplyFilter" class="form-inline">
+                    <InputSelect class="form-control" Value="FilterInfo.Page" ValueExpression="@(() => FilterInfo.Page)" ValueChanged="@((int i) => JumpPage(i))">
+                        @for (int i = 0; i <= maxPage; i++)
+                        {
+                            <option value="@(i + 1)">@(i + 1)</option>
+                        }
+                    </InputSelect>
+                </EditForm>
+            </li>
+            <li class="page-item">
+                <button class="page-link" @onclick="NextPage">&raquo;</button>
+            </li>
+        </ul>
+        <button class="btn btn-outline-info ml-2" @onclick="@(() => filterModal.Toggle())">@LocalStrings.Filter</button>
+        <Modal @ref="filterModal">
+            <ModalTitle>@LocalStrings.Filter</ModalTitle>
+            <ModalBody>
+                <div class="p-2">
+                    <EditForm Model="FilterInfo" OnValidSubmit="ApplyFilter">
+                        <div class="form-inline" id="clipfilter">
+                            <InputSelect @bind-Value="FilterInfo.Type" class="custom-select w-25 mr-1">
+                                @foreach (var type in (FilterType[])Enum.GetValues(typeof(FilterType)))
+                                {
+                                    <option value="@type">@LocalStrings.GetFilterType(type)</option>
+                                }
+                            </InputSelect>
+                            <div class="input-group">
+                                <InputText @bind-Value="FilterInfo.FilterString" type="text" class="form-control" placeholder="@LocalStrings.Keyword" />
+                                <div class="input-group-append">
+                                    <button class="btn btn-outline-secondary" type="submit">@LocalStrings.Filter</button>
+                                </div>
+                            </div>
+                        </div>
+                    </EditForm>
+                    <hr />
+                    <button class="btn btn-outline-primary mr-2" @onclick="FilterMe">@LocalStrings.FilterGroup.My</button>
+                    <button class="btn btn-outline-primary mr-3" @onclick="FilterReset">@LocalStrings.FilterGroup.All</button>
+                    @foreach (var type in (PriorityType[])Enum.GetValues(typeof(PriorityType)))
+                    {
+                        <button class="btn btn-outline-info mr-2" @onclick="@(async () => { wantPriority = type; await ApplyFilter(); })">
+                            @LocalStrings.GetPriorityType(type)
+                        </button>
+                    }
+                </div>
+            </ModalBody>
+        </Modal>
+
+        <Modal @ref="clipModal">
+            <ModalTitle>@LocalStrings.Create</ModalTitle>
+            <ModalBody>
+                <EditForm Model="newClip" OnValidSubmit="TryAdd">
+                    <DataAnnotationsValidator></DataAnnotationsValidator>
+                    <p class="form-group">
+                        <label>@LocalStrings.Title</label>
+                        <InputText @bind-Value="newClip.Title" class="form-control"></InputText>
+                        <ValidationMessage For="@(() => newClip.Title)"></ValidationMessage>
+                    </p>
+                    <p class="form-group">
+                        <label>@LocalStrings.Type.ClipType</label>
+                        <InputSelect @bind-Value="newClip.Type" class="custom-select">
+                            @foreach (var type in (ClipType[])Enum.GetValues(typeof(ClipType)))
+                            {
+                                <option value="@type">@LocalStrings.GetClipType(type)</option>
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="@(() => newClip.Type)"></ValidationMessage>
+                    </p>
+                    <p class="form-group">
+                        <label>@LocalStrings.Type.PriorityType</label>
+                        <InputSelect @bind-Value="newClip.Priority" class="custom-select">
+                            <option value="@PriorityType.Normal">@LocalStrings.GetPriorityType(PriorityType.Normal)</option>
+                            <option value="@PriorityType.Important">@LocalStrings.GetPriorityType(PriorityType.Important)</option>
+                            <option value="@PriorityType.Sage">@LocalStrings.GetPriorityType(PriorityType.Sage)</option>
+                            <option value="@PriorityType.Completed">@LocalStrings.GetPriorityType(PriorityType.Completed)</option>
+                        </InputSelect>
+                        <ValidationMessage For="@(() => newClip.Priority)"></ValidationMessage>
+                    </p>
+                    <p class="form-group">
+                        <label>@LocalStrings.OriginInfo</label>
+                        <InputText @bind-Value="newClip.OriginInfo" class="form-control"></InputText>
+                        <ValidationMessage For="@(() => newClip.OriginInfo)"></ValidationMessage>
+                    </p>
+                    <p class="form-group">
+                        <label>@LocalStrings.Length</label>
+                        <span class="input-group">
+                            <InputNumber @bind-Value="newClip.Length" class="form-control"></InputNumber>
+                            <span class="input-group-append">
+                                <span class="input-group-text">@LocalStrings.Minute</span>
+                            </span>
+                        </span>
+                        <ValidationMessage For="@(() => newClip.Length)"></ValidationMessage>
+                    </p>
+                    <p class="form-group">
+                        <label>@LocalStrings.Description</label>
+                        <InputTextArea @bind-Value="newClip.Description" class="form-control"></InputTextArea>
+                        <ValidationMessage For="@(() => newClip.Description)"></ValidationMessage>
+                    </p>
+                    <hr />
+                    <button type="submit" class="btn btn-outline-primary">@LocalStrings.Submit</button>
+                </EditForm>
+            </ModalBody>
+        </Modal>
+        <button class="btn btn-outline-primary ml-3" id="clipfilter" @onclick="() => clipModal.Toggle()">
+            @LocalStrings.Create
+        </button>
+    </AuthorizeView>
+</CommandBar>
+
+@if (Clips == null)
+{
+    <Loading LoadingMessage="@LocalStrings.LoadMessage.Fetching"></Loading>
+}
+else if (Clips.Count == 0)
+{
+    <NothingHere></NothingHere>
+}
+else
+{
+    foreach (var clip in Clips)
+    {
+        <ClipContainer Clip="clip" OnChange="Fresh" UserInfo="userinfo"></ClipContainer>
+        <br />
+    }
+}
+
+@code
+{
+    private List<Clip> Clips { get; set; }
+    private List<Clip> AllClips { get; set; }
+    private FilterInfo FilterInfo { get; set; } = new FilterInfo();
+
+    private Modal clipModal;
+    private Modal filterModal;
+    private Clip newClip = new Clip();
+    private bool isSubmitted = false;
+    private UserInfo userinfo;
+    private int maxPage = 0;
+    private PriorityType? wantPriority = null;
+
+    protected async override Task OnInitializedAsync()
+    {
+        var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        userinfo = await UserService.GetByUserName(state.User.Identity.Name);
+
+        FilterInfo.Page = 1;
+        FilterInfo.FilterString = "";
+
+        await Fresh();
+        await base.OnInitializedAsync();
+    }
+
+    private async void TryAdd()
+    {
+        if (isSubmitted) return;
+
+        isSubmitted = true;
+        clipModal.Toggle();
+        _ = await ClipService.Create(newClip);
+
+        await Fresh();
+        isSubmitted = false;
+    }
+
+    private async Task Fresh()
+    {
+        newClip = new Clip();
+        AllClips = await ClipService.GetAll();
+        await ApplyFilter();
+        StateHasChanged();
+    }
+
+    private async Task FilterMe()
+    {
+        FilterInfo = new FilterInfo
+        {
+            Type = FilterType.ByAttender,
+            FilterString = userinfo.UserName,
+            Page = 0
+        };
+        await ApplyFilter();
+    }
+
+    private async Task FilterReset()
+    {
+        FilterInfo = new FilterInfo
+        {
+            Type = FilterType.ByTitle,
+            FilterString = "",
+            Page = 0
+        };
+        wantPriority = null;
+        await ApplyFilter();
+    }
+
+    private async Task NextPage()
+    {
+        FilterInfo.Page++;
+        await ApplyFilter();
+    }
+
+    private async Task PrevPage()
+    {
+        FilterInfo.Page--;
+        await ApplyFilter();
+    }
+
+    private async Task JumpPage(int i)
+    {
+        FilterInfo.Page = i;
+        await ApplyFilter();
+    }
+
+    private async Task ApplyFilter()
+    {
+        switch (FilterInfo.Type)
+        {
+            case FilterType.ByTitle:
+                Clips = AllClips
+                    .Where(c => wantPriority == null ? true : c.Priority == wantPriority)
+                    .Where(c => c.Title.Contains(FilterInfo.FilterString))
+                    .OrderBy(c => c.Priority)
+                    .ThenByDescending(c => c.Type)
+                    .ToList();
+                break;
+
+            case FilterType.ByOriginInfo:
+                Clips = AllClips
+                    .Where(c => wantPriority == null ? true : c.Priority == wantPriority)
+                    .Where(c => c.OriginInfo.Contains(FilterInfo.FilterString))
+                    .OrderBy(c => c.Priority)
+                    .ThenByDescending(c => c.Type)
+                    .ToList();
+                break;
+
+            case FilterType.ByCreator:
+                Clips = AllClips
+                    .Where(c => wantPriority == null ? true : c.Priority == wantPriority)
+                    .Where(c => c.CreateUserName.Contains(FilterInfo.FilterString))
+                    .OrderBy(c => c.Priority)
+                    .ThenByDescending(c => c.Type)
+                    .ToList();
+                break;
+
+            case FilterType.ByAttender:
+                var ids = (await StaffService.GetAll())
+                    .Where(s => s.UserName.Contains(FilterInfo.FilterString))
+                    .Select(s => s.ClipId)
+                    .ToHashSet();
+                Clips = AllClips
+                    .Where(c => wantPriority == null ? true : c.Priority == wantPriority)
+                    .Where(c => ids.Contains(c.Id))
+                    .OrderBy(c => c.Priority)
+                    .ThenByDescending(c => c.Type)
+                    .ToList();
+                break;
+
+            default:
+                Clips = AllClips
+                    .Where(c => wantPriority == null ? true : c.Priority == wantPriority)
+                    .Where(c => c.Title.Contains(FilterInfo.FilterString))
+                    .OrderBy(c => c.Priority)
+                    .ThenByDescending(c => c.Type)
+                    .ToList();
+                break;
+        }
+
+        int itemPerPage = 15;
+
+        maxPage = Clips.Count / itemPerPage - (Clips.Count % itemPerPage == 0 ? 1 : 0);
+        FilterInfo.Page = Math.Max(Math.Min(FilterInfo.Page, maxPage + 1), 1);
+        var nowpage = FilterInfo.Page - 1;
+        Clips = Clips.GetRange(nowpage * itemPerPage, nowpage * itemPerPage + itemPerPage > Clips.Count ? Clips.Count - nowpage * itemPerPage : itemPerPage);
+    }
+}

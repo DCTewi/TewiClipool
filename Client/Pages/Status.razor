@@ -1,0 +1,13 @@
+﻿@page "/status"
+
+<AuthorizeView Roles="@Literal.Roles.User">
+    <NotAuthorized>
+        <RedirectToHome></RedirectToHome>
+    </NotAuthorized>
+    <Authorizing>
+        <Loading LoadingMessage="@LocalStrings.LoadMessage.Authorizing"></Loading>
+    </Authorizing>
+    <Authorized>
+        <StatusList></StatusList>
+    </Authorized>
+</AuthorizeView>

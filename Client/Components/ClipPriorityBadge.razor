@@ -1,0 +1,19 @@
+﻿<span class="badge shadow-sm @badgeClass">@LocalStrings.GetPriorityType(PriorityType)</span>
+
+@code
+{
+    [Parameter] public PriorityType PriorityType { get; set; }
+
+    private string badgeClass
+    {
+        get => PriorityType switch
+        {
+            PriorityType.Completed => "badge-success",
+            PriorityType.Important => "badge-danger",
+            PriorityType.Normal => "badge-light",
+            PriorityType.Sage => "badge-warning",
+            PriorityType.Desperated => "badge-dark",
+            _ => "",
+        };
+    }
+}

@@ -1,0 +1,16 @@
+﻿@page "/clips"
+
+<AuthorizeView Roles="@Literal.Roles.User">
+    <NotAuthorized>
+        <RedirectToHome></RedirectToHome>
+    </NotAuthorized>
+    <Authorizing>
+        <Loading LoadingMessage="@LocalStrings.LoadMessage.Authorizing"></Loading>
+    </Authorizing>
+    <Authorized>
+
+        <ClipList></ClipList>
+
+    </Authorized>
+</AuthorizeView>
+

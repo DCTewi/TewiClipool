@@ -1,0 +1,37 @@
+﻿@page "/authentication/{Action}"
+@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+
+<RemoteAuthenticatorView Action="@Action" >
+    <CompletingLoggingIn>
+        <Loading LoadingMessage="@LocalStrings.LoadMessage.CompletingLogin"></Loading>
+    </CompletingLoggingIn>
+    <CompletingLogOut>
+        <Loading LoadingMessage="@LocalStrings.LoadMessage.CompletingLogout"></Loading>
+    </CompletingLogOut>
+    <LoggingIn>
+        <Loading LoadingMessage="@LocalStrings.LoadMessage.LoggingIn"></Loading>
+    </LoggingIn>
+    <LogInFailed>
+        <ErrorComponent ErrorTitle="@LocalStrings.Error.BadRequest400" ErrorContent="@LocalStrings.Error.LoginFailed"></ErrorComponent>
+    </LogInFailed>
+    <LogOut>
+        <Loading LoadingMessage="@LocalStrings.LoadMessage.LogOut"></Loading>
+    </LogOut>
+    <LogOutFailed>
+        <ErrorComponent ErrorTitle="@LocalStrings.Error.BadRequest400" ErrorContent="@LocalStrings.Error.LogOutFailed"></ErrorComponent>
+    </LogOutFailed>
+    <LogOutSucceeded>
+        <RedirectToHome></RedirectToHome>
+    </LogOutSucceeded>
+    <Registering>
+        <Loading LoadingMessage="@LocalStrings.LoadMessage.Registering"></Loading>
+    </Registering>
+    <UserProfile>
+        <Loading LoadingMessage="@LocalStrings.LoadMessage.LoadingUserProfile"></Loading>
+    </UserProfile>
+</RemoteAuthenticatorView>
+
+@code
+{
+    [Parameter] public string Action { get; set; }
+}

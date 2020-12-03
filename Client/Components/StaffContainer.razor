@@ -1,0 +1,251 @@
+﻿@inject UserService UserService
+@inject StaffService StaffService
+
+<table class="table table-hover">
+    <thead>
+        <tr>
+            <th class="p-1" scope="col">@LocalStrings.StaffDescription</th>
+            <th class="p-1" scope="col">@LocalStrings.AcceptTime</th>
+            <th class="p-1" scope="col">@LocalStrings.NickName</th>
+            <th class="p-1" scope="col">@LocalStrings.Source</th>
+            <th class="p-1" scope="col">@LocalStrings.Status</th>
+            <th class="p-1" scope="col">@LocalStrings.Operations</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var staff in StaffItems)
+        {
+            <tr>
+                <th class="p-2">
+                    <StaffBadge StaffItem="staff" ShowUserName="false"></StaffBadge>
+                    <small>@staff.Description</small>
+                </th>
+                <td class="text-info p-2">
+                    <small>@staff.AcceptTime.ToShortDateString()</small>
+                </td>
+                <td class="text-body p-2">
+                    <details class="text-monospace">
+                        <summary><small>@staff.StaffNickName</small></summary>
+                        <small>@LocalStrings.UserName: @staff.UserName</small>
+                    </details>
+                </td>
+                <td class="p-2">
+                    @if (string.IsNullOrEmpty(staff.ResAddress))
+                    {
+                        <span>-</span>
+                    }
+                    else
+                    {
+                        <span><small>@staff.ResAddress</small></span>
+                    }
+                </td>
+                <td class="p-2">
+                    @if (staff.Process == ProcessType.Accepted)
+                    {
+                        <span class="badge badge-warning shadow-sm">
+                            <span class="oi oi-timer"></span>
+                        </span>
+                    }
+                    else if (staff.Process == ProcessType.Completed)
+                    {
+                        <span class="badge badge-success shadow-sm">
+                            <span class="oi oi-check"></span>
+                        </span>
+                        @if (!staff.Saged)
+                        {
+                            <span class="text-success">
+                                <small> on @staff.CompletedTime.ToShortDateString()</small>
+                            </span>
+                        }
+                    }
+                    else if (staff.Process == ProcessType.GaveUp)
+                    {
+                        <span class="badge badge-dark shadow-sm">
+                            <span class="oi oi-x"></span>
+                        </span>
+                    }
+                    @if (staff.Saged)
+                    {
+                        <span class="badge badge-secondary shadow-sm ml-2">
+                            <span class="oi oi-ban"></span>
+                        </span>
+                        <span class="text-dark">
+                            <small> by @staff.SagedUser</small>
+                        </span>
+                    }
+                </td>
+                <td class="p-2">
+                    @if (UserInfo.UserName == staff.UserName || UserInfo.IsOperator)
+                    {
+                        <span class="cursor-pointer ml-2 badge badge-primary shadow-sm mytooltip"
+                              @onclick="() => ToggleStaffModal(staff.Id)">
+                            <span class="oi oi-pencil"></span>
+                            <span class="mytooltiptext mb-2">@LocalStrings.Update</span>
+                        </span>
+                        <span class="cursor-pointer ml-2 badge badge-danger shadow-sm mytooltip"
+                              @onclick="() => TryDelete(staff.Id)">
+                            <span class="oi oi-trash"></span>
+                            <span class="mytooltiptext mb-2">@LocalStrings.Delete</span>
+                        </span>
+                    }
+                    @if (UserInfo.IsReviewer || UserInfo.IsOperator)
+                    {
+                        <span class="cursor-pointer ml-2 badge badge-secondary shadow-sm mytooltip"
+                              @onclick="() => TryToggleSage(staff.Id)">
+                            <span class="oi oi-ban"></span>
+                            <span class="mytooltiptext mb-2">@LocalStrings.Sage</span>
+                        </span>
+                    }
+                    @if (ClipPriority != PriorityType.Desperated &&
+                   ClipPriority != PriorityType.Completed &&
+                   UserInfo.UserName == staff.UserName)
+                    {
+                        @if (staff.Process == ProcessType.Accepted)
+                        {
+                            <span class="cursor-pointer ml-2 badge badge-secondary shadow-sm mytooltip"
+                                  @onclick="() => TryGiveUp(staff.Id)">
+                                <span class="oi oi-x"></span>
+                                <span class="mytooltiptext mb-2">@LocalStrings.GiveUp</span>
+                            </span>
+                            <span class="cursor-pointer ml-2 badge badge-success shadow-sm mytooltip"
+                                  @onclick="() => TryComplete(staff.Id)">
+                                <span class="oi oi-check"></span>
+                                <span class="mytooltiptext mb-2">@LocalStrings.Complete</span>
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="cursor-pointer ml-2 badge badge-warning shadow-sm mytooltip"
+                                  @onclick="() => TryAccept(staff.Id)">
+                                <span class="oi oi-timer"></span>
+                                <span class="mytooltiptext mb-2">@LocalStrings.Redo</span>
+                            </span>
+                        }
+                    }
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<Modal @ref="staffUpdateModal">
+    <ModalTitle>@LocalStrings.Update</ModalTitle>
+    <ModalBody>
+        <EditForm Model="editingStaff" OnValidSubmit="TryUpdateStaff">
+            <DataAnnotationsValidator></DataAnnotationsValidator>
+            <p class="form-group">
+                <label>@LocalStrings.StaffDescription</label>
+                <InputText @bind-Value="editingStaff.Description" class="form-control"></InputText>
+                <ValidationMessage For="@(() => editingStaff.Description)"></ValidationMessage>
+            </p>
+            <p class="form-group">
+                <label>@LocalStrings.Source</label>
+                <InputText @bind-Value="editingStaff.ResAddress" class="form-control"></InputText>
+                <ValidationMessage For="@(() => editingStaff.ResAddress)"></ValidationMessage>
+            </p>
+            <hr />
+            <button type="submit" class="btn btn-outline-primary">@LocalStrings.Submit</button>
+        </EditForm>
+    </ModalBody>
+</Modal>
+
+@code
+{
+    [Parameter] public List<StaffItem> StaffItems { get; set; }
+    [Parameter] public UserInfo UserInfo { get; set; }
+    [Parameter] public Func<Task> OnChange { get; set; }
+    [Parameter] public PriorityType ClipPriority { get; set; }
+    [Parameter] public bool IsSingle { get; set; } = false;
+    private Modal staffUpdateModal;
+    private StaffItem editingStaff = new StaffItem();
+    private bool isSubmitted = false;
+
+    protected async override Task OnParametersSetAsync()
+    {
+        await base.OnParametersSetAsync();
+    }
+
+
+    private async Task TryDelete(int staffid)
+    {
+        if (isSubmitted) return;
+
+        isSubmitted = true;
+        await StaffService.Delete(staffid);
+
+        await OnChange();
+        isSubmitted = false;
+    }
+
+    private async Task TryToggleSage(int staffid)
+    {
+        if (isSubmitted) return;
+
+        isSubmitted = true;
+        await StaffService.ToggleSageAsync(staffid);
+
+        await OnChange();
+        isSubmitted = false;
+    }
+
+    private async Task TryComplete(int staffid)
+    {
+        if (isSubmitted) return;
+
+        isSubmitted = true;
+        var staff = StaffItems.Find(s => s.Id == staffid);
+        staff.SetCompleted();
+
+        await StaffService.Update(staff);
+
+        await OnChange();
+        isSubmitted = false;
+    }
+
+    private async Task TryAccept(int staffid)
+    {
+        if (isSubmitted) return;
+
+        isSubmitted = true;
+        var staff = StaffItems.Find(s => s.Id == staffid);
+        staff.SetAccepted();
+
+        await StaffService.Update(staff);
+
+        await OnChange();
+        isSubmitted = false;
+    }
+
+    private async Task TryGiveUp(int staffid)
+    {
+        if (isSubmitted) return;
+
+        isSubmitted = true;
+        var staff = StaffItems.Find(s => s.Id == staffid);
+        staff.SetGaveUp();
+
+        await StaffService.Update(staff);
+
+        await OnChange();
+        isSubmitted = false;
+    }
+
+    private void ToggleStaffModal(int staffid)
+    {
+        editingStaff = StaffItems.Find(s => s.Id == staffid);
+        staffUpdateModal.Toggle();
+    }
+
+    private async Task TryUpdateStaff()
+    {
+        if (isSubmitted) return;
+
+        isSubmitted = true;
+
+        staffUpdateModal.Toggle();
+        await StaffService.Update(editingStaff);
+
+        await OnChange();
+        isSubmitted = false;
+    }
+}

@@ -1,0 +1,66 @@
+﻿@inject UserService UserService
+
+<CommandBar></CommandBar>
+
+@if (UserInfos == null)
+{
+    <Loading LoadingMessage="@LocalStrings.LoadMessage.Fetching"></Loading>
+}
+else if (UserInfos.Count == 0)
+{
+    <NothingHere></NothingHere>
+}
+else
+{
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th scope="col">@LocalStrings.TableHeader.Id</th>
+                <th scope="col">@LocalStrings.TableHeader.UserName</th>
+                <th scope="col">@LocalStrings.TableHeader.NickName</th>
+                <th scope="col">@LocalStrings.TableHeader.Email</th>
+                <th scope="col">@LocalStrings.TableHeader.Skills</th>
+                <th scope="col">@LocalStrings.TableHeader.Operation</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var userinfo in UserInfos.Where(u => u.IsOperator))
+            {
+                <UserRoleContainer UserInfo="userinfo"
+                                   OnChange="Fresh">
+                </UserRoleContainer>
+            }
+            @foreach (var userinfo in UserInfos.Where(u => !u.IsOperator && u.IsUser))
+            {
+                <UserRoleContainer UserInfo="userinfo"
+                                   OnChange="Fresh">
+                </UserRoleContainer>
+            }
+            @foreach (var userinfo in UserInfos.Where(u => !u.IsUser))
+            {
+                <UserRoleContainer UserInfo="userinfo"
+                                   OnChange="Fresh">
+                </UserRoleContainer>
+            }
+        </tbody>
+    </table>
+}
+
+@code
+{
+    private List<UserInfo> UserInfos { get; set; }
+
+    protected async override Task OnInitializedAsync()
+    {
+        await Fresh();
+        await base.OnInitializedAsync();
+    }
+
+    private async Task Fresh()
+    {
+        UserInfos = await UserService.GetAll();
+        UserInfos = UserInfos.OrderBy(c => c.UserName).ToList();
+
+        StateHasChanged();
+    }
+}

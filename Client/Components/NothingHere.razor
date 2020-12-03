@@ -1,0 +1,11 @@
+﻿<div class="d-flex justify-content-center m-@MaginSize">
+    <small class="text-secondary">
+        - @NothingInfo -
+    </small>
+</div>
+
+@code
+{
+    [Parameter] public string NothingInfo { get; set; } = LocalStrings.EmptyMessage.Nothing;
+    [Parameter] public int MaginSize { get; set; } = 5;
+}

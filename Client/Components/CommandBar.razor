@@ -1,0 +1,9 @@
+﻿<div class="alert alert-light mb-3 p-0 d-flex justify-content-end">
+    @ChildContent
+    <LoginDisplay />
+</div>
+
+@code
+{
+    [Parameter] public RenderFragment ChildContent { get; set; }
+}

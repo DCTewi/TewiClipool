@@ -1,0 +1,102 @@
+﻿@inject AnnounceService AnnounceService
+@inject UserService UserService 
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <h5 class="card-title">
+            @Announce.Title
+            <AuthorizeView Roles="@Literal.Roles.Operator">
+                <span class="float-right">
+                    <button class="btn btn-outline-primary btn-sm ml-2" @onclick="@(() => announceModal.Toggle())">
+                        <span class="oi oi-pencil"></span>
+                    </button>
+                    <button class="btn btn-outline-danger btn-sm" @onclick="TryDelete">
+                        <span class="oi oi-trash"></span>
+                    </button>
+                </span>
+            </AuthorizeView>
+        </h5>
+        <hr />
+        <div class="card-text">
+            @((MarkupString)Announce.RawHtml)
+        </div>
+
+        <hr class="mb-0" />
+        <small class="card-subtitle mb-2 text-monospace">
+            <span class="text-primary">@userinfo.NickName</span> -
+            <span class="text-info">@Announce.PublishTime.ToShortDateString()</span>
+            @if (Announce.IsTopped)
+            {
+                <span class="badge badge-pill shadow-sm badge-primary ml-2">@LocalStrings.Topped</span>
+            }
+        </small>
+    </div>
+</div>
+
+<AuthorizeView Roles="@Literal.Roles.Operator" Context="Auth">
+    <Modal @ref="announceModal">
+        <ModalTitle>@LocalStrings.Update</ModalTitle>
+        <ModalBody>
+            <EditForm Model="Announce" OnValidSubmit="TryUpdate">
+                <DataAnnotationsValidator></DataAnnotationsValidator>
+                <p class="form-group">
+                    <label>@LocalStrings.Title</label>
+                    <InputText @bind-Value="Announce.Title" class="form-control"></InputText>
+                    <ValidationMessage For="@(() => Announce.Title)"></ValidationMessage>
+                </p>
+                <p class="form-group">
+                    <label>@LocalStrings.Content</label>
+                    <InputTextArea @bind-Value="Announce.RawHtml" class="form-control text-monospace" rows="12"></InputTextArea>
+                    <ValidationMessage For="@(() => Announce.RawHtml)"></ValidationMessage>
+                </p>
+                <p class="custom-control custom-switch">
+                    <InputCheckbox @bind-Value="Announce.IsTopped" class="custom-control-input" id="@($"{Announce.Id}-SelectTop")"></InputCheckbox>
+                    <label for="@($"{Announce.Id}-SelectTop")" class="custom-control-label">@LocalStrings.Topped</label>
+                </p>
+                <hr />
+                <button type="submit" class="btn btn-outline-primary">@LocalStrings.Submit</button>
+            </EditForm>
+        </ModalBody>
+    </Modal>
+</AuthorizeView>
+
+@code
+{
+    [Parameter] public AnnounceInfo Announce { get; set; }
+    [Parameter] public Func<Task> OnChange { get; set; }
+    private Modal announceModal;
+    private bool isSubmitted = false;
+    private UserInfo userinfo = new UserInfo();
+
+    protected async override Task OnParametersSetAsync()
+    {
+        if (Announce != null)
+        {
+            userinfo = await UserService.GetByUserName(Announce.UserName);
+        }
+        await base.OnParametersSetAsync();
+    }
+
+    private async void TryUpdate()
+    {
+        if (isSubmitted) return;
+
+        isSubmitted = true;
+        announceModal.Toggle();
+        await AnnounceService.Update(Announce);
+
+        isSubmitted = false;
+        await OnChange();
+    }
+
+    private async void TryDelete()
+    {
+        if (isSubmitted) return;
+
+        isSubmitted = true;
+        await AnnounceService.Delete(Announce.Id);
+
+        isSubmitted = false;
+        await OnChange();
+    }
+}

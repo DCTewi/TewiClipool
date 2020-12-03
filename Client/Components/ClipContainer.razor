@@ -1,0 +1,418 @@
+﻿@inject ClipService ClipService
+@inject StaffService StaffService
+@inject CommentService CommentService
+@inject UserService UserService
+
+<div class="card shadow-sm @cardBorderClass">
+    <div class="card-body">
+        <div class="cursor-pointer" @onclick="ToggleCardBody">
+            <h5 class="card-title mb-1">
+                @Clip.Title
+                <AuthorizeView Roles="@Literal.Roles.User">
+                    <span class="float-right">
+                        @if (canAttend &&
+                         Clip.Priority != PriorityType.Desperated &&
+                         Clip.Priority != PriorityType.Completed)
+                        {
+                            <button class="btn btn-outline-success btn-sm ml-2" @onclick="TryToggleAddModal">
+                                <span class="oi oi-flash"></span>
+                            </button>
+                        }
+                        <button class="btn btn-outline-info btn-sm ml-2" @onclick="@(() => commentModal.Toggle())">
+                            <span class="oi oi-comment-square"></span>
+                        </button>
+                        @if ((context.User.IsInRole(Literal.Roles.Operator) ||
+                       context.User.Identity.Name == Clip.CreateUserName) &&
+                       Clip.Priority != PriorityType.Completed &&
+                       Clip.Priority != PriorityType.Desperated)
+                        {
+                            <button class="btn btn-outline-success btn-sm ml-2" @onclick="TryComplete">
+                                <span class="oi oi-check"></span>
+                            </button>
+                        }
+                        @if (context.User.IsInRole(Literal.Roles.Operator) ||
+                         context.User.Identity.Name == Clip.CreateUserName)
+                        {
+                            <button class="btn btn-outline-primary btn-sm ml-2" @onclick="@(() => clipModal.Toggle())">
+                                <span class="oi oi-pencil"></span>
+                            </button>
+                            <button class="btn btn-outline-danger btn-sm" @onclick="TryDelete">
+                                <span class="oi oi-trash"></span>
+                            </button>
+                        }
+                    </span>
+                </AuthorizeView>
+            </h5>
+            <ClipPriorityBadge PriorityType="Clip.Priority"></ClipPriorityBadge>
+            <ClipTypeBadge ClipType="Clip.Type"></ClipTypeBadge>
+            <small class="card-subtitle mb-2 mx-2 text-monospace">
+                <span class="text-primary">@Clip.Length</span> @LocalStrings.Minute |
+                <span class="text-secondary">@Clip.OriginInfo</span> |
+                <span class="text-primary">@creator.NickName</span> |
+                <span class="text-info">@Clip.CreateTime.ToShortDateString()</span>
+                @if (distinctStaffTypes != null && distinctStaffTypes.Count != 0)
+                {
+                    @foreach (var type in distinctStaffTypes)
+                    {
+                        <StaffBadge ShowUserName="false" StaffItem="@(new StaffItem { Type = type, Process = GetProcess(type) })"></StaffBadge>
+                    }
+                }
+            </small>
+        </div>
+        <div class="collapse @showClass">
+            <hr class="m-1" />
+            @if (distinctStaffTypes == null)
+            {
+                <Loading LoadingMessage="@LocalStrings.LoadMessage.Fetching" MarginTop="1"></Loading>
+            }
+            else
+            {
+
+                @if (!string.IsNullOrEmpty(Clip.Description))
+                {
+                    <div class="card-text mb-2 mt-2">
+                        @Clip.Description
+                    </div>
+                }
+                @if (staffs == null)
+                {
+                    <Loading LoadingMessage="@LocalStrings.LoadMessage.Fetching" MarginTop="1"></Loading>
+                }
+                else if (staffs.Count == 0)
+                {
+                    <NothingHere NothingInfo="@LocalStrings.EmptyMessage.NoStaff" MaginSize="2"></NothingHere>
+                }
+                else
+                {
+                    <StaffContainer UserInfo="UserInfo"
+                                    OnChange="FreshStaffs"
+                                    ClipPriority="Clip.Priority"
+                                    StaffItems="staffs.OrderBy(s => s.Type).ToList()">
+                    </StaffContainer>
+                }
+                @if (comments != null && comments.Count > 0)
+                {
+                    <hr />
+                    <CommentContainer Comments="comments"
+                                      OnChange="FreshStaffs"
+                                      UserInfo="UserInfo">
+                    </CommentContainer>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+<Modal @ref="clipModal">
+    <ModalTitle>@LocalStrings.Update</ModalTitle>
+    <ModalBody>
+        <EditForm Model="Clip" OnValidSubmit="TryUpdate">
+            <DataAnnotationsValidator></DataAnnotationsValidator>
+            <p class="form-group">
+                <label>@LocalStrings.Title</label>
+                <InputText @bind-Value="Clip.Title" class="form-control"></InputText>
+                <ValidationMessage For="@(() => Clip.Title)"></ValidationMessage>
+            </p>
+            <p class="form-group">
+                <label>@LocalStrings.Type.ClipType</label>
+                <InputSelect @bind-Value="Clip.Type" class="custom-select">
+                    @foreach (var type in (ClipType[])Enum.GetValues(typeof(ClipType)))
+                    {
+                        <option value="@type">@LocalStrings.GetClipType(type)</option>
+                    }
+                </InputSelect>
+                <ValidationMessage For="@(() => Clip.Type)"></ValidationMessage>
+            </p>
+            <p class="form-group">
+                <label>@LocalStrings.Type.PriorityType</label>
+                <InputSelect @bind-Value="Clip.Priority" class="custom-select">
+                    @foreach (var type in (PriorityType[])Enum.GetValues(typeof(PriorityType)))
+                    {
+                        <option value="@type">@LocalStrings.GetPriorityType(type)</option>
+                    }
+                </InputSelect>
+                <ValidationMessage For="@(() => Clip.Priority)"></ValidationMessage>
+            </p>
+            <p class="form-group">
+                <label>@LocalStrings.OriginInfo</label>
+                <InputText @bind-Value="Clip.OriginInfo" class="form-control"></InputText>
+                <ValidationMessage For="@(() => Clip.OriginInfo)"></ValidationMessage>
+            </p>
+            <p class="form-group">
+                <label>@LocalStrings.Length</label>
+                <span class="input-group">
+                    <InputNumber @bind-Value="Clip.Length" class="form-control"></InputNumber>
+                    <span class="input-group-append">
+                        <span class="input-group-text">@LocalStrings.Minute</span>
+                    </span>
+                </span>
+                <ValidationMessage For="@(() => Clip.Length)"></ValidationMessage>
+            </p>
+            <p class="form-group">
+                <label>@LocalStrings.Description</label>
+                <InputTextArea @bind-Value="Clip.Description" class="form-control"></InputTextArea>
+                <ValidationMessage For="@(() => Clip.Description)"></ValidationMessage>
+            </p>
+            <hr />
+            <button type="submit" class="btn btn-outline-primary">@LocalStrings.Submit</button>
+        </EditForm>
+    </ModalBody>
+</Modal>
+
+
+@if (canAttend &&
+Clip.Priority != PriorityType.Desperated &&
+Clip.Priority != PriorityType.Completed)
+{
+    <Modal @ref="staffModal">
+        <ModalTitle>@LocalStrings.Attend</ModalTitle>
+        <ModalBody>
+            <EditForm Model="newStaff" OnValidSubmit="TryAttendStaff">
+                <DataAnnotationsValidator></DataAnnotationsValidator>
+                <p class="form-group">
+                    <label class="mb-1">@LocalStrings.Type.StaffType</label> <br />
+                    <InputRadioGroup @bind-Value="newStaff.Type">
+                        @foreach (var type in (StaffType[])Enum.GetValues(typeof(StaffType)))
+                            {
+                                if (UserInfo.CheckRole(type))
+                                {
+                                <div class="custom-control custom-radio custom-control-inline">
+                                    <InputRadio Value="type" class="custom-control-input" id="@($"staffRatio{Clip.Id}{type}")">
+                                        @type
+                                    </InputRadio>
+                                    <label class="custom-control-label" for="@($"staffRatio{Clip.Id}{type}")">@LocalStrings.GetStaffType(type)</label>
+                                </div>
+                                }
+                            }
+                    </InputRadioGroup>
+                    <ValidationMessage For="@(() => newStaff.Type)"></ValidationMessage>
+                </p>
+                <p class="form-group">
+                    <label>@LocalStrings.StaffDescription</label>
+                    <InputText @bind-Value="newStaff.Description" class="form-control"></InputText>
+                    <ValidationMessage For="@(() => newStaff.Description)"></ValidationMessage>
+                </p>
+                <p class="form-group">
+                    <label>@LocalStrings.NickName</label>
+                    <InputText @bind-Value="newStaff.StaffNickName" class="form-control"></InputText>
+                    <ValidationMessage For="@(() => newStaff.StaffNickName)"></ValidationMessage>
+                </p>
+                <hr />
+                <button type="submit" class="btn btn-outline-primary">@LocalStrings.Submit</button>
+            </EditForm>
+        </ModalBody>
+    </Modal>
+}
+
+<Modal @ref="commentModal">
+    <ModalTitle>@LocalStrings.Comment</ModalTitle>
+    <ModalBody>
+        <EditForm Model="newComment" OnValidSubmit="TryAddComment">
+            <DataAnnotationsValidator></DataAnnotationsValidator>
+            <p class="form-group">
+                <label class="mb-1">@LocalStrings.Type.CommentType</label> <br />
+                <InputRadioGroup @bind-Value="newComment.Type">
+                    @foreach (var type in (CommentType[])Enum.GetValues(typeof(CommentType)))
+                    {
+                        <div class="custom-control custom-radio custom-control-inline">
+                            <InputRadio Value="type" class="custom-control-input" id="@($"commentRadio{Clip.Id}{type}")">
+                                @type
+                            </InputRadio>
+                            <label class="custom-control-label" for="@($"commentRadio{Clip.Id}{type}")">@LocalStrings.GetCommentType(type)</label>
+                        </div>
+                    }
+                </InputRadioGroup>
+                <ValidationMessage For="@(() => newComment.Type)"></ValidationMessage>
+            </p>
+            <p class="form-group">
+                <label>@LocalStrings.Content</label>
+                <InputTextArea @bind-Value="newComment.Content" class="form-control"></InputTextArea>
+                <ValidationMessage For="@(() => newComment.Content)"></ValidationMessage>
+            </p>
+            <hr />
+            <button type="submit" class="btn btn-outline-primary">@LocalStrings.Submit</button>
+        </EditForm>
+    </ModalBody>
+</Modal>
+
+@code
+{
+    [Parameter] public Clip Clip { get; set; }
+    [Parameter] public Func<Task> OnChange { get; set; }
+    [Parameter] public UserInfo UserInfo { get; set; }
+
+    private Modal clipModal;
+    private Modal staffModal;
+    private Modal commentModal;
+    private StaffItem newStaff = new StaffItem();
+    private Comment newComment = new Comment();
+    private UserInfo creator = new UserInfo();
+    private bool canAttend = false;
+    private bool isSubmitted = false;
+
+    private string cardBorderClass = "";
+    private string showClass = "";
+    private List<StaffItem> staffs;
+    private List<Comment> comments;
+    private List<StaffType> distinctStaffTypes;
+
+    protected async override Task OnParametersSetAsync()
+    {
+        newStaff.StaffNickName = UserInfo?.NickName;
+
+        if (Clip != null)
+        {
+            switch (Clip.Priority)
+            {
+                case PriorityType.Important:
+                    cardBorderClass = "border-danger";
+                    break;
+                case PriorityType.Normal:
+                    cardBorderClass = "border-primary";
+                    break;
+                case PriorityType.Completed:
+                    cardBorderClass = "border-success";
+                    break;
+                case PriorityType.Sage:
+                    cardBorderClass = "border-secondary";
+                    break;
+                case PriorityType.Desperated:
+                    cardBorderClass = "border-dark";
+                    break;
+                default:
+                    break;
+            }
+
+            creator = await UserService.GetByUserName(Clip.CreateUserName);
+            newStaff.Description = $"0-{Clip.Length} All";
+            comments = await CommentService.GetByClipId(Clip.Id);
+            comments = comments.OrderBy(c => c.Type).ToList();
+
+            staffs = await StaffService.GetByClipId(Clip.Id);
+            distinctStaffTypes = staffs.Select(s => s.Type).Distinct().OrderBy(t => t).ToList();
+        }
+
+        if (!canAttend && UserInfo != null)
+        {
+            foreach (var type in (StaffType[])Enum.GetValues(typeof(StaffType)))
+            {
+                if (UserInfo.CheckRole(type))
+                {
+                    canAttend = true;
+                    break;
+                }
+            }
+        }
+
+        await base.OnParametersSetAsync();
+    }
+
+    private ProcessType GetProcess(StaffType type)
+    {
+        if (staffs.Where(s => s.Type == type).Where(s => s.Process == ProcessType.Accepted).ToList().Count == 0)
+        {
+            return ProcessType.Completed;
+        }
+        return ProcessType.Accepted;
+    }
+
+    private void ToggleCardBody()
+    {
+        if (showClass == "")
+        {
+            showClass = "show";
+        }
+        else
+        {
+            showClass = "";
+        }
+    }
+
+    private void TryToggleAddModal()
+    {
+        newStaff.Type = distinctStaffTypes.FirstOrDefault();
+        staffModal.Toggle();
+    }
+
+    private async void TryComplete()
+    {
+        if (isSubmitted) return;
+
+        isSubmitted = true;
+        Clip.Priority = PriorityType.Completed;
+        await ClipService.Update(Clip);
+
+        isSubmitted = false;
+        await FreshStaffs();
+    }
+
+    private async void TryUpdate()
+    {
+        if (isSubmitted) return;
+
+        isSubmitted = true;
+        clipModal.Toggle();
+        await ClipService.Update(Clip);
+
+        isSubmitted = false;
+        await FreshStaffs();
+    }
+
+    private async void TryDelete()
+    {
+        if (isSubmitted) return;
+
+        isSubmitted = true;
+        await ClipService.Delete(Clip.Id);
+
+        isSubmitted = false;
+        await OnChange();
+    }
+
+    private async Task TryAttendStaff()
+    {
+        if (!canAttend) return;
+        if (isSubmitted) return;
+
+        isSubmitted = true;
+        newStaff.ClipId = Clip.Id;
+        staffModal.Toggle();
+        _ = await StaffService.Create(newStaff);
+        newStaff = new StaffItem
+        {
+            StaffNickName = UserInfo.NickName,
+            ClipId = Clip.Id,
+            Description = $"0-{Clip.Length}"
+        };
+
+        await FreshStaffs();
+        isSubmitted = false;
+    }
+
+    private async Task FreshStaffs()
+    {
+        staffs = await StaffService.GetByClipId(Clip.Id);
+        comments = await CommentService.GetByClipId(Clip.Id);
+        comments = comments.OrderBy(c => c.Type).ToList();
+
+        distinctStaffTypes = staffs.Select(s => s.Type).Distinct().OrderBy(t => t).ToList();
+        await OnChange();
+    }
+
+    private async Task TryAddComment()
+    {
+        if (isSubmitted) return;
+
+        isSubmitted = true;
+        newComment.ClipId = Clip.Id;
+        commentModal.Toggle();
+        _ = await CommentService.Create(newComment);
+        newComment = new Comment
+        {
+            ClipId = Clip.Id
+        };
+
+        await FreshStaffs();
+        isSubmitted = false;
+    }
+}

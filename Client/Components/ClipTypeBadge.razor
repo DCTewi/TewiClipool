@@ -1,0 +1,20 @@
+﻿<span class="badge shadow-sm @badgeClass">@LocalStrings.GetClipType(ClipType)</span>
+
+@code
+{
+    [Parameter] public ClipType ClipType { get; set; }
+
+    private string badgeClass
+    {
+        get => ClipType switch
+        {
+            ClipType.LiveClip => "badge-primary",
+            ClipType.SongClip => "badge-info",
+            ClipType.FullLive => "badge-dark",
+            ClipType.PV => "badge-warning",
+            ClipType.Collabo => "badge-danger",
+            _ => "",
+        };
+    }
+
+}

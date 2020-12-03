@@ -1,0 +1,51 @@
+﻿@page "/dashboard"
+
+<AuthorizeView Roles="@Literal.Roles.Operator">
+    <NotAuthorized>
+        <RedirectToHome></RedirectToHome>
+    </NotAuthorized>
+    <Authorizing>
+        <Loading LoadingMessage="@LocalStrings.LoadMessage.Authorizing"></Loading>
+    </Authorizing>
+    <Authorized>
+        <ul class="nav nav-tabs mb-3">
+            <li class="nav-item">
+                <a class="nav-link cursor-pointer @roleClass" @onclick="SwitchToRole">@LocalStrings.Navagation.Role</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link cursor-pointer @tokenClass" @onclick="SwitchToToken">@LocalStrings.Navagation.RegisterToken</a>
+            </li>
+        </ul>
+        @if (isRole)
+        {
+            <UserRoleList></UserRoleList>
+        }
+        else
+        {
+            <RegisterTokenList></RegisterTokenList>
+        }
+    </Authorized>
+</AuthorizeView>
+
+@code
+{
+    private string roleClass = "active text-dark";
+    private string tokenClass = "text-primary";
+    private bool isRole = true;
+
+    private void SwitchToRole()
+    {
+        isRole = true;
+        roleClass = "active text-dark";
+        tokenClass = "text-primary";
+        StateHasChanged();
+    }
+
+    private void SwitchToToken()
+    {
+        isRole = false;
+        roleClass = "text-primary";
+        tokenClass = "active text-dark";
+        StateHasChanged();
+    }
+}

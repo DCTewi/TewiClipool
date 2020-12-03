@@ -1,0 +1,120 @@
+﻿@inject CommentService CommentService
+ 
+@if (Comments == null)
+{
+    <Loading LoadingMessage="@LocalStrings.LoadMessage.Fetching"></Loading>
+}
+else if (Comments.Count == 0)
+{
+    // No, won't happen
+    throw new Exception("What are you doing?");
+}
+else
+{
+    foreach (var comment in Comments)
+    {
+        <div class="card shadow-sm mb-2">
+            <div class="card-body p-2">
+                <small class="card-subtitle text-monospace">
+                    <CommentTypeBadge CommentType="comment.Type"></CommentTypeBadge>
+                    <span class="text-primary">@comment.UserName</span> -
+                    <span class="text-info">@comment.PublishTime.ToString()</span>
+                    @if (comment.Edited)
+                    {
+                        <span class="text-muted">[@LocalStrings.Edited]</span>
+                    }
+                    @if (comment.UserName == UserInfo.UserName)
+                    {
+                        <span class="cursor-pointer ml-2 badge badge-primary shadow-sm mytooltip"
+                              @onclick="() => ToggleEdit(comment.Id)">
+                            <span class="oi oi-pencil"></span>
+                            <span class="mytooltiptext mb-2">@LocalStrings.Update</span>
+                        </span>
+                    }
+                    @if (comment.UserName == UserInfo.UserName || UserInfo.IsOperator)
+                    {
+                        <span class="cursor-pointer ml-2 badge badge-danger shadow-sm mytooltip"
+                              @onclick="() => TryDelete(comment.Id)">
+                            <span class="oi oi-trash"></span>
+                            <span class="mytooltiptext mb-2">@LocalStrings.Delete</span>
+                        </span>
+                    }
+                </small> <br />
+                <small class="card-text">
+                    <pre class="mb-1 mt-1">@comment.Content</pre>
+                </small>
+            </div>
+        </div>
+    }
+}
+
+<Modal @ref="editModal">
+    <ModalTitle>@LocalStrings.Update</ModalTitle>
+    <ModalBody>
+        <EditForm Model="editingComment" OnValidSubmit="TryEdit">
+            <DataAnnotationsValidator></DataAnnotationsValidator>
+            <p class="form-group">
+                <label class="mb-1">@LocalStrings.Type.CommentType</label> <br />
+                <InputRadioGroup @bind-Value="editingComment.Type">
+                    @foreach (var type in (CommentType[])Enum.GetValues(typeof(CommentType)))
+                    {
+                        <div class="custom-control custom-radio custom-control-inline">
+                            <InputRadio Value="type" class="custom-control-input" id="@($"commentEditRadio{type}")">
+                                @type
+                            </InputRadio>
+                            <label class="custom-control-label" for="@($"commentEditRadio{type}")">@LocalStrings.GetCommentType(type)</label>
+                        </div>
+                    }
+                </InputRadioGroup>
+                <ValidationMessage For="@(() => editingComment.Type)"></ValidationMessage>
+            </p>
+            <p class="form-group">
+                <label>@LocalStrings.Content</label>
+                <InputTextArea @bind-Value="editingComment.Content" class="form-control"></InputTextArea>
+                <ValidationMessage For="@(() => editingComment.Content)"></ValidationMessage>
+            </p>
+            <hr />
+            <button type="submit" class="btn btn-outline-primary">@LocalStrings.Submit</button>
+        </EditForm>
+    </ModalBody>
+</Modal>
+
+@code
+{
+    [Parameter] public List<Comment> Comments { get; set; }
+    [Parameter] public Func<Task> OnChange { get; set; }
+    [Parameter] public UserInfo UserInfo { get; set; }
+
+    private Modal editModal;
+    private Comment editingComment = new Comment();
+    private bool isSubmitted = false;
+
+    private void ToggleEdit(int id)
+    {
+        editingComment = Comments.FirstOrDefault(c => c.Id == id);
+        editModal.Toggle();
+    }
+
+    private async Task TryEdit()
+    {
+        if (isSubmitted) return;
+
+        isSubmitted = true;
+        editModal.Toggle();
+        await CommentService.Update(editingComment);
+
+        await OnChange();
+        isSubmitted = false;
+    }
+
+    private async Task TryDelete(int id)
+    {
+        if (isSubmitted) return;
+
+        isSubmitted = true;
+        await CommentService.Delete(id);
+
+        await OnChange();
+        isSubmitted = false;
+    }
+}

@@ -1,0 +1,43 @@
+﻿@inject RegisterTokenService RegisterTokenService
+
+<tr>
+    <th class="text-monospace" scope="row">@RegisterToken.Id</th>
+    <td class="text-monospace">@RegisterToken.Token</td>
+    <td class="text-monospace">
+        @if (@RegisterToken.Used)
+        {
+            <span class="badge shadow-sm badge-primary">@LocalStrings.Used</span>
+        }
+        else
+        {
+            <span class="badge shadow-sm badge-success">@LocalStrings.Available</span>
+        }
+    </td>
+    <td class="text-monospace">@RegisterToken.UserName</td>
+    <td>
+        @if (!RegisterToken.Used)
+        {
+            <button class="btn btn-sm btn-outline-danger" @onclick="ToggleDelete">
+                <span class="oi oi-trash"></span>
+            </button>
+        }
+    </td>
+</tr>
+
+@code
+{
+    [Parameter] public RegisterTokenInfo RegisterToken { get; set; }
+    [Parameter] public Func<Task> OnChange { get; set; }
+    private bool isSubmitted = false;
+
+    private async Task ToggleDelete()
+    {
+        if (isSubmitted) return;
+
+        isSubmitted = true;
+        await RegisterTokenService.Delete(RegisterToken.Id);
+        await OnChange();
+
+        isSubmitted = false;
+    }
+}

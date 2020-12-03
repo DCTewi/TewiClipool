@@ -1,0 +1,17 @@
+﻿<span class="badge shadow-sm mr-2 @badgeClass">@LocalStrings.GetCommentType(CommentType)</span>
+
+@code
+{
+    [Parameter] public CommentType CommentType { get; set; }
+
+    private string badgeClass
+    {
+        get => CommentType switch
+        {
+            CommentType.Notice => "badge-info",
+            CommentType.Warning => "badge-warning",
+            CommentType.Chat => "badge-light",
+            _ => "badge-secondary",
+        };
+    }
+}

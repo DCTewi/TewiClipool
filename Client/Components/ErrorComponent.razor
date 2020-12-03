@@ -1,0 +1,8 @@
+﻿<h2 class="text-danger">@ErrorTitle</h2> <hr />
+<h5 class="text-secondary">@ErrorContent</h5>
+
+@code
+{
+    [Parameter] public string ErrorTitle { get; set; }
+    [Parameter] public string ErrorContent { get; set; }
+}

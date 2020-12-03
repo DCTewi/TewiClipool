@@ -1,0 +1,16 @@
+{
+  "name": "字幕组工作表",
+  "short_name": "字幕组工作表",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#03173d",
+  "icons": [
+    {
+      "src": "icon.png",
+      "type": "image/png",
+      "sizes": "300x300"
+    }
+  ]
+}
